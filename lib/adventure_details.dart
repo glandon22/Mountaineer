@@ -25,7 +25,8 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   final MapController _mapController = MapController();
   double _rotation = 0.0;
   final TextEditingController _searchController = TextEditingController();
-  List<LatLng> _trailPoints = [];
+  List<LatLng> _trailPoints = []; // For the trail route
+  List<LatLng> _tappedPoints = []; // New list for tapped points
   final String? key = dotenv.env['GRAPH_HOPPER_KEY'];
 
   @override
@@ -42,12 +43,15 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   }
 
   void _onMapTap(LatLng point) {
+    setState(() {
+      _tappedPoints.add(point); // Add tapped point to separate list
+    });
     if (_trailPoints.isEmpty) {
       setState(() {
-        _trailPoints.add(point);
+        _trailPoints.add(point); // Start trail with first tap
       });
     } else {
-      _fetchTrailRoute(_trailPoints.last, point);
+      _fetchTrailRoute(_trailPoints.last, point); // Connect to previous trail point
     }
   }
 
@@ -70,6 +74,21 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     );
   }
 
+  MarkerLayer _buildTappedPoints() {
+    return MarkerLayer(
+      markers: _tappedPoints.map((point) => Marker(
+        width: 20.0,
+        height: 20.0,
+        point: point,
+        child: Icon(
+          Icons.pin_drop_outlined,
+          size: 20,
+          color: AppColors.dustyOrange,
+        ),
+      )).toList(),
+    );
+  }
+
   FlutterMap _buildFlutterMap() {
     return FlutterMap(
       mapController: _mapController,
@@ -85,6 +104,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
         ),
         FadeMarker(point: _center),
         if (_trailPoints.isNotEmpty) _buildTrailLine(),
+        if (_tappedPoints.isNotEmpty) _buildTappedPoints(), // Add tapped points as dots
       ],
     );
   }
@@ -101,6 +121,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           setState(() {
             _rotation = 0;
             _trailPoints = [];
+            _tappedPoints = []; // Clear tapped points too
           });
         },
         child: Transform.rotate(
@@ -169,6 +190,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       final points = await LocationService.fetchTrailRoute(start, end);
       setState(() {
         _trailPoints.addAll(points);
+        _tappedPoints.add(end); // Add end point to tapped points too
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
