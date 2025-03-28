@@ -187,9 +187,9 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
 
   Future<void> _fetchTrailRoute(LatLng start, LatLng end) async {
     try {
-      final points = await LocationService.fetchTrailRoute(start, end);
+      final TrailData trailData = await LocationService.fetchTrailRoute(start, end);
       setState(() {
-        _trailPoints.addAll(points);
+        _trailPoints.addAll(trailData.points);
         _tappedPoints.add(end); // Add end point to tapped points too
       });
     } catch (e) {
