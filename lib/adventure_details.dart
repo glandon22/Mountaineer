@@ -11,19 +11,17 @@ import 'colors.dart';
 
 
 class HikeDetailsPage extends StatefulWidget {
-  final LatLng? initialCenter; // Optional initial center point
+  final LatLng initialCenter; // Optional initial center point
 
-  const HikeDetailsPage({super.key, this.initialCenter});
+  const HikeDetailsPage({super.key, required this.initialCenter});
 
   @override
   State<HikeDetailsPage> createState() => _HikeDetailsPageState();
 }
 
 class _HikeDetailsPageState extends State<HikeDetailsPage> {
-  LatLng? _center;
+  late LatLng _center;
   final MapController _mapController = MapController();
-  bool _isLoading = true; // Track loading state
-  String? _errorMessage; // Track errors
   double _rotation = 0.0; // Track map rotation in degrees
   final TextEditingController _searchController = TextEditingController();
   List<LatLng> _trailPoints = []; // Store trail route points
@@ -32,8 +30,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   @override
   void initState() {
     super.initState();
-    _center = widget.initialCenter ?? const LatLng(37.7749, -122.4194); // Default to San Francisco
-    getUserPosition();
+    _center = widget.initialCenter;
     _mapController.mapEventStream.listen((event) {
       if (event is MapEventRotate && mounted) {
         setState(() {
@@ -43,30 +40,11 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     });
   }
 
-  Future<void> getUserPosition() async {
-    setState(() {
-      _isLoading = true; // Show loading while fetching
-      _errorMessage = null; // Clear previous errors
-    });
-    // Fetch position
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-    );
-  print("moving!");
-    if (!mounted) return;
-    setState(() {
-      _center = LatLng(position.latitude, position.longitude);
-      _isLoading = false;
-      _mapController.move(_center!, 15); // Update map center
-    });
-  }
-
   void _onMapTap(LatLng point) {
-    setState(() {
-      _trailPoints.add(point);
-    });
-    if (_trailPoints.length <= 1) {
-      return;
+    if (_trailPoints.isEmpty) {
+      setState(() {
+        _trailPoints.add(point);
+      });
     } else {
       // Fetch the route between the most recently added trail point to
       // the desired destination. Adding the entire existing trail (if many points)
@@ -97,10 +75,6 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     );
   }
 
-  void _debug() {
-    print(_trailPoints);
-  }
-
   PolylineLayer _buildTrailLine() {
     print("building a trail");
     print(_trailPoints);
@@ -119,7 +93,8 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       mapController: _mapController,
       options: MapOptions(
         initialZoom: 13.0,
-        initialRotation: _rotation, // Apply rotation to the map
+        initialRotation: _rotation,
+        initialCenter: _center,
         onTap: (_, point) => _onMapTap(point), // Allow tapping
       ),
       children: [
@@ -240,7 +215,10 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
         'https://graphhopper.com/api/1/route?key=$key';
     try {
       print("here");
-      print(_trailPoints);
+      print([
+        [start.longitude, start.latitude],
+        [end.longitude, end.latitude],
+      ]);
       final Map<String, dynamic> requestBody = {
         "points": [
           [start.longitude, start.latitude],
