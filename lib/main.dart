@@ -66,8 +66,57 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  LatLng loc = const LatLng(37.67744, -113.06101);
+  bool _userLocSet = false;
+  bool _isLoading = false; // New state variable for loading spinner
+
+  Future<void> _setUserLoc(bool immediate) async {
+    if (immediate) {
+      setState(() {
+        _isLoading = true; // Show spinner
+      });
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.bestForNavigation,
+        );
+        setState(() {
+          loc = LatLng(position.latitude, position.longitude);
+          _userLocSet = true;
+          _isLoading = false; // Hide spinner
+        });
+      } catch (e) {
+        setState(() {
+          _isLoading = false; // Hide spinner on error
+        });
+        print('Error fetching position: $e');
+        return;
+      }
+    }
+    // Background fetch (unchanged)
+    Future(() async {
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.bestForNavigation,
+        );
+        if (mounted) {
+          setState(() {
+            loc = LatLng(position.latitude, position.longitude);
+            _userLocSet = true;
+          });
+        }
+      } catch (e) {
+        print('Error fetching initial position: $e');
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _setUserLoc(false); // Start fetching position in the background
+  }
+
   Future<void> _promptGeolocationWithDialog(BuildContext context) async {
-    // Check if location services are enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (!mounted) return;
@@ -90,7 +139,6 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
-    // Check permission status
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       if (!mounted) return;
@@ -103,7 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
             TextButton(
               onPressed: () async {
                 final newPermission = await Geolocator.requestPermission();
-                Navigator.pop(dialogContext, newPermission); // Return the permission result
+                Navigator.pop(dialogContext, newPermission);
               },
               child: const Text('Allow'),
             ),
@@ -111,7 +159,6 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       );
 
-      // Handle the result after the dialog is closed
       if (permissionResult != null) {
         if (permissionResult == LocationPermission.denied) {
           print('Permission denied');
@@ -119,14 +166,15 @@ class _MyHomePageState extends State<MyHomePage> {
             permissionResult == LocationPermission.whileInUse) {
           print('we are here');
           if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const HikeDetailsPage(
-                  initialCenter: LatLng(30, 33),
+            if (!_userLocSet) await _setUserLoc(true);
+            if (!_isLoading) { // Only navigate if not still loading
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HikeDetailsPage(initialCenter: loc),
                 ),
-              ),
-            );
+              );
+            }
           }
         }
       }
@@ -134,14 +182,15 @@ class _MyHomePageState extends State<MyHomePage> {
         permission == LocationPermission.whileInUse) {
       print("not prompting - already allowed access");
       if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HikeDetailsPage(
-            initialCenter: LatLng(30, 33),
+      if (!_userLocSet) await _setUserLoc(true);
+      if (!_isLoading) { // Only navigate if not still loading
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HikeDetailsPage(initialCenter: loc),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -152,12 +201,16 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: AppColors.mossGreen,
         title: Text(widget.title),
       ),
-      body: Center(),
+      body: Center(
+        child: _isLoading
+            ? const CircularProgressIndicator() // Show spinner when loading
+            : null, // Empty center when not loading
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await _promptGeolocationWithDialog(context);
         },
-        tooltip: 'Increment',
+        tooltip: 'Plan a Trip',
         child: const Icon(Icons.add),
       ),
     );
