@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'colors.dart'; // Assuming this file exists
 import 'adventure_details.dart'; // Assuming this file contains HikeDetailsPage
 import 'package:geolocator/geolocator.dart';
@@ -65,19 +66,20 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  Future<void> promptGeolocationWithDialog() async {
+  Future<void> _promptGeolocationWithDialog(BuildContext context) async {
+    // Check if location services are enabled
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (!mounted) return; // Check if widget is still mounted
+      if (!mounted) return;
       await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Enable Location'),
           content: const Text('Location services are disabled. Please enable them.'),
           actions: [
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 await Geolocator.openLocationSettings();
               },
               child: const Text('Open Settings'),
@@ -88,45 +90,60 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
 
+    // Check permission status
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      if (!mounted) return; // Check if widget is still mounted
-      await showDialog(
+      if (!mounted) return;
+      final permissionResult = await showDialog<LocationPermission>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Location Permission'),
           content: const Text('This app needs location access to proceed.'),
           actions: [
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
-                permission = await Geolocator.requestPermission();
-                if (permission == LocationPermission.denied) {
-                  print('Permission denied');
-                } else if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
-                  if (context.mounted) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HikeDetailsPage()),
-                    );
-                  }
-                }
+                final newPermission = await Geolocator.requestPermission();
+                Navigator.pop(dialogContext, newPermission); // Return the permission result
               },
               child: const Text('Allow'),
             ),
           ],
         ),
       );
-    } else if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+
+      // Handle the result after the dialog is closed
+      if (permissionResult != null) {
+        if (permissionResult == LocationPermission.denied) {
+          print('Permission denied');
+        } else if (permissionResult == LocationPermission.always ||
+            permissionResult == LocationPermission.whileInUse) {
+          print('we are here');
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const HikeDetailsPage(
+                  initialCenter: LatLng(30, 33),
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } else if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
       print("not prompting - already allowed access");
-      if (!mounted) return; // Check before navigation
+      if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const HikeDetailsPage()),
+        MaterialPageRoute(
+          builder: (context) => const HikeDetailsPage(
+            initialCenter: LatLng(30, 33),
+          ),
+        ),
       );
     }
-  } // Added closing brace here
-
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,11 +152,10 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: AppColors.mossGreen,
         title: Text(widget.title),
       ),
-      body: Center(
-      ),
+      body: Center(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          await promptGeolocationWithDialog();
+          await _promptGeolocationWithDialog(context);
         },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
