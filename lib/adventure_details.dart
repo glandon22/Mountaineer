@@ -9,9 +9,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'colors.dart';
 
-
 class HikeDetailsPage extends StatefulWidget {
-  final LatLng initialCenter; // Optional initial center point
+  final LatLng initialCenter;
 
   const HikeDetailsPage({super.key, required this.initialCenter});
 
@@ -22,9 +21,9 @@ class HikeDetailsPage extends StatefulWidget {
 class _HikeDetailsPageState extends State<HikeDetailsPage> {
   late LatLng _center;
   final MapController _mapController = MapController();
-  double _rotation = 0.0; // Track map rotation in degrees
+  double _rotation = 0.0;
   final TextEditingController _searchController = TextEditingController();
-  List<LatLng> _trailPoints = []; // Store trail route points
+  List<LatLng> _trailPoints = [];
   final String? key = dotenv.env['GRAPH_HOPPER_KEY'];
 
   @override
@@ -34,7 +33,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     _mapController.mapEventStream.listen((event) {
       if (event is MapEventRotate && mounted) {
         setState(() {
-          _rotation = event.camera.rotation; // Update rotation from MapEventRotate
+          _rotation = event.camera.rotation;
         });
       }
     });
@@ -46,32 +45,18 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
         _trailPoints.add(point);
       });
     } else {
-      // Fetch the route between the most recently added trail point to
-      // the desired destination. Adding the entire existing trail (if many points)
-      // to the call causes a 400 error (max 80 nodes)
       _fetchTrailRoute(_trailPoints.last, point);
     }
   }
 
-  MarkerLayer _buildMarkerLayer() {
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: _center!,
-          child: Icon(
-            Icons.location_pin,
-            color: Colors.black,
-            size: 35.0,
-          ),
-        ),
-      ],
-    );
+  Widget _buildMarkerLayer() {
+    return FadeMarker(point: _center);
   }
 
   AppBar _buildAppBar() {
     return AppBar(
-    title: const Text('Explore Map'),
-    backgroundColor: AppColors.softSlateBlue,
+      title: const Text('Explore Map'),
+      backgroundColor: AppColors.softSlateBlue,
     );
   }
 
@@ -88,6 +73,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       ],
     );
   }
+
   FlutterMap _buildFlutterMap() {
     return FlutterMap(
       mapController: _mapController,
@@ -95,36 +81,34 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
         initialZoom: 13.0,
         initialRotation: _rotation,
         initialCenter: _center,
-        onTap: (_, point) => _onMapTap(point), // Allow tapping
+        onTap: (_, point) => _onMapTap(point),
       ),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         ),
-        if (_center != null)
-          _buildMarkerLayer(),
-        if (_trailPoints.isNotEmpty)
-          _buildTrailLine()
+        if (_center != null) _buildMarkerLayer(),
+        if (_trailPoints.isNotEmpty) _buildTrailLine(),
       ],
     );
   }
 
   Positioned _buildCompass() {
     return Positioned(
-      bottom: 10, // Position it near the top-right corner
+      bottom: 10,
       right: 10,
       child: FloatingActionButton(
-        mini: true, // Smaller button
+        mini: true,
         backgroundColor: Colors.transparent,
         onPressed: () {
-          _mapController.rotate(0); // Reset rotation to 0 (north)
+          _mapController.rotate(0);
           setState(() {
-            _rotation = 0; // Update the rotation variable
+            _rotation = 0;
             _trailPoints = [];
           });
         },
         child: Transform.rotate(
-          angle: _rotation * (3.14159 / 180), // Convert degrees to radians and negate
+          angle: _rotation * (3.14159 / 180),
           child: Image.asset(
             'assets/compass.png',
             color: AppColors.forestGreen,
@@ -175,7 +159,6 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     }
   }
 
-
   Widget _buildSearchBar() {
     return Positioned(
       top: 10,
@@ -204,15 +187,14 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
               onPressed: () => _searchLocation(_searchController.text),
             ),
           ),
-          onSubmitted: _searchLocation, // Search on Enter key
+          onSubmitted: _searchLocation,
         ),
       ),
     );
   }
 
   Future<void> _fetchTrailRoute(LatLng start, LatLng end) async {
-    final String graphHopperURL =
-        'https://graphhopper.com/api/1/route?key=$key';
+    final String graphHopperURL = 'https://graphhopper.com/api/1/route?key=$key';
     try {
       print("here");
       print([
@@ -225,10 +207,10 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           [end.longitude, end.latitude],
         ],
         "details": ["road_class", "surface"],
-        "profile": "hike", // Use hiking profile for trails
+        "profile": "hike",
         "locale": "en",
         "calc_points": true,
-        "points_encoded": false // Get raw coordinates instead of encoded polyline
+        "points_encoded": false,
       };
       final response = await http.post(
         Uri.parse(graphHopperURL),
@@ -273,9 +255,68 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
             ],
           ),
           _buildCompass(),
-          _buildSearchBar()
+          _buildSearchBar(),
         ],
       ),
+    );
+  }
+}
+
+// New FadeMarker widget for fading icon effect
+class FadeMarker extends StatefulWidget {
+  final LatLng point;
+
+  const FadeMarker({super.key, required this.point});
+
+  @override
+  State<FadeMarker> createState() => _FadeMarkerState();
+}
+
+class _FadeMarkerState extends State<FadeMarker> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacityAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000), // Duration of one fade cycle
+    )..repeat(reverse: true); // Repeat and reverse for fading in and out
+
+    // Opacity animation: fades from 1.0 to 0.4 and back
+    _opacityAnimation = Tween<double>(begin: 1.0, end: 0.5).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: widget.point,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Icon(
+                Icons.hiking,
+                color: AppColors.dustyOrange.withOpacity(_opacityAnimation.value),
+                size: 35.0, // Fixed size, no animation
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
