@@ -1,11 +1,13 @@
 import 'dart:convert';
 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mountaineer/models/latlng_elevation.dart';
 
 import 'widgets/fade_marker.dart';
 import 'colors.dart';
@@ -20,14 +22,52 @@ class HikeDetailsPage extends StatefulWidget {
   State<HikeDetailsPage> createState() => _HikeDetailsPageState();
 }
 
+// Add this new class for drawing the elevation profile
+class ElevationProfilePainter extends CustomPainter {
+  final double ascent;
+  final double descent;
+  final double distance;
+
+  ElevationProfilePainter({
+    required this.ascent,
+    required this.descent,
+    required this.distance,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.softSlateBlue
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = ui.Path();
+    final maxElevation = ascent > descent ? ascent : descent;
+
+    // Simple elevation profile: start at 0, go up to ascent, then down to descent
+    path.moveTo(0, size.height);
+    path.lineTo(size.width * 0.5, size.height - (ascent / maxElevation) * size.height);
+    path.lineTo(size.width, size.height - (descent / maxElevation) * size.height);
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
 class _HikeDetailsPageState extends State<HikeDetailsPage> {
   late LatLng _center;
   final MapController _mapController = MapController();
   double _rotation = 0.0;
   final TextEditingController _searchController = TextEditingController();
-  List<LatLng> _trailPoints = []; // For the trail route
-  List<LatLng> _tappedPoints = []; // New list for tapped points
+  List<LatLngElevation> _trailPoints = [];
+  List<LatLng> _tappedPoints = [];
   final String? key = dotenv.env['GRAPH_HOPPER_KEY'];
+  double _totalAscent = 0.0;
+  double _totalDescent = 0.0;
+  double _totalDistance = 0.0; // New field for total distance
+  bool _isTrailInfoVisible = false;
 
   @override
   void initState() {
@@ -44,14 +84,14 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
 
   void _onMapTap(LatLng point) {
     setState(() {
-      _tappedPoints.add(point); // Add tapped point to separate list
+      _tappedPoints.add(point);
     });
     if (_trailPoints.isEmpty) {
       setState(() {
-        _trailPoints.add(point); // Start trail with first tap
+        _trailPoints.add(LatLngElevation(point.latitude, point.longitude, 0));
       });
     } else {
-      _fetchTrailRoute(_trailPoints.last, point); // Connect to previous trail point
+      _fetchTrailRoute(_trailPoints.last, LatLngElevation(point.latitude, point.longitude, 0));
     }
   }
 
@@ -66,7 +106,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     return PolylineLayer(
       polylines: [
         Polyline(
-          points: _trailPoints,
+          points: _trailPoints as List<LatLng>,
           strokeWidth: 4.0,
           color: AppColors.forestGreen,
         ),
@@ -79,7 +119,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       markers: _tappedPoints.map((point) => Marker(
         width: 20.0,
         height: 20.0,
-        point: point,
+        point: point as LatLng,
         child: Icon(
           Icons.pin_drop_outlined,
           size: 20,
@@ -104,7 +144,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
         ),
         FadeMarker(point: _center),
         if (_trailPoints.isNotEmpty) _buildTrailLine(),
-        if (_tappedPoints.isNotEmpty) _buildTappedPoints(), // Add tapped points as dots
+        if (_tappedPoints.isNotEmpty) _buildTappedPoints(),
       ],
     );
   }
@@ -121,7 +161,11 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           setState(() {
             _rotation = 0;
             _trailPoints = [];
-            _tappedPoints = []; // Clear tapped points too
+            _tappedPoints = [];
+            _totalAscent = 0;
+            _totalDescent = 0;
+            _totalDistance = 0.0; // Reset distance
+            _isTrailInfoVisible = false;
           });
         },
         child: Transform.rotate(
@@ -185,16 +229,102 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     );
   }
 
-  Future<void> _fetchTrailRoute(LatLng start, LatLng end) async {
+  Future<void> _fetchTrailRoute(LatLngElevation start, LatLngElevation end) async {
     try {
       final TrailData trailData = await LocationService.fetchTrailRoute(start, end);
       setState(() {
-        _trailPoints.addAll(trailData.points);
-        _tappedPoints.add(end); // Add end point to tapped points too
+        _trailPoints.addAll(trailData.points); // Still use points here
+        _tappedPoints.add(end as LatLng);
+        _totalAscent += trailData.ascent;
+        _totalDescent += trailData.descent;
+        _totalDistance += trailData.distance;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  Widget _buildTrailInfoWidget() {
+    return Positioned(
+      bottom: 60,
+      left: 10,
+      right: 10,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isTrailInfoVisible = !_isTrailInfoVisible;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          height: _isTrailInfoVisible ? 200 : 40, // Increased height to accommodate graph
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.creamyOffWhite.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Trail Info',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.softSlateBlue,
+                    ),
+                  ),
+                  Icon(
+                    _isTrailInfoVisible ? Icons.expand_less : Icons.expand_more,
+                    color: AppColors.softSlateBlue,
+                  ),
+                ],
+              ),
+              if (_isTrailInfoVisible) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 80,
+                  child: CustomPaint(
+                    painter: ElevationProfilePainter(
+                      ascent: _totalAscent,
+                      descent: _totalDescent,
+                      distance: _totalDistance,
+                    ),
+                    child: Container(),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Total Distance: ${_totalDistance.toStringAsFixed(2)} m',
+                  style: const TextStyle(color: AppColors.charcoalGray),
+                ),
+                Text(
+                  'Total Ascent: ${_totalAscent.toStringAsFixed(2)} m',
+                  style: const TextStyle(color: AppColors.charcoalGray),
+                ),
+                Text(
+                  'Total Descent: ${_totalDescent.toStringAsFixed(2)} m',
+                  style: const TextStyle(color: AppColors.charcoalGray),
+                ),
+                Text(
+                  'Max Elevation: ${(_totalAscent > _totalDescent ? _totalAscent : _totalDescent).toStringAsFixed(2)} m',
+                  style: const TextStyle(color: AppColors.charcoalGray),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -212,6 +342,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           ),
           _buildCompass(),
           _buildSearchBar(),
+          _buildTrailInfoWidget(),
         ],
       ),
     );
