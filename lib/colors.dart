@@ -8,4 +8,5 @@ class AppColors {
   static const Color dustyOrange = Color(0xFFD9896C);
   static const Color charcoalGray = Color(0xFF2E2E2E);
   static const Color forestGreen = Color(0xFF2F4F2F);
+  static const Color pleasantRed = Color(0xFFE57373);
 }

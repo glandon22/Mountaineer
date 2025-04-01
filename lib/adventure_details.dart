@@ -1,17 +1,15 @@
-import 'dart:convert';
-
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mountaineer/models/latlng_elevation.dart';
-
 import 'widgets/fade_marker.dart';
 import 'colors.dart';
 import 'services/location.dart';
+import './widgets/custom_text.dart';
+import './utils/elevation_calculations.dart';
 
 class HikeDetailsPage extends StatefulWidget {
   final LatLng initialCenter;
@@ -22,34 +20,172 @@ class HikeDetailsPage extends StatefulWidget {
   State<HikeDetailsPage> createState() => _HikeDetailsPageState();
 }
 
-// Add this new class for drawing the elevation profile
 class ElevationProfilePainter extends CustomPainter {
-  final double ascent;
-  final double descent;
-  final double distance;
+  final List<LatLngElevation> points;
+  final double totalDistance; // Total distance in meters
+  final double ascent; // Total elevation gain in meters
+  final double descent; // Total elevation loss in meters
 
   ElevationProfilePainter({
-    required this.ascent,
-    required this.descent,
-    required this.distance,
-  });
+    required this.points,
+  })  : totalDistance = ElevationCalculations.calculateTotalDistance(points),
+        ascent = ElevationCalculations.calculateAscent(points),
+        descent = ElevationCalculations.calculateDescent(points);
+
+
+  double _getMaxElevation() {
+    return points.isEmpty
+        ? 0.0
+        : points.map((point) => point.elevation).reduce(math.max);
+  }
+
+  double _getMinElevation() {
+    return points.isEmpty
+        ? 0.0
+        : points.map((point) => point.elevation).reduce(math.min);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.softSlateBlue
+    const double labelWidth = 40.0; // Space for elevation labels on the left
+    const double labelHeight = 20.0; // Space for distance labels at the bottom
+
+    final graphWidth = size.width - labelWidth;
+    final graphHeight = size.height - labelHeight;
+
+    final maxElevation = _getMaxElevation();
+    final minElevation = _getMinElevation();
+    final elevationRange = maxElevation - minElevation;
+
+    final gridPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.3)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    final profilePaint = Paint()
+      ..color = Colors.blue
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
+    final textStyle = TextStyle(
+      color: Colors.black,
+      fontSize: 12,
+    );
+
+    _drawGridAndLabels(
+      canvas,
+      graphWidth,
+      graphHeight,
+      minElevation,
+      maxElevation,
+      labelWidth,
+      gridPaint,
+      textStyle,
+    );
+
     final path = ui.Path();
-    final maxElevation = ascent > descent ? ascent : descent;
+    double cumulativeDistance = 0.0;
 
-    // Simple elevation profile: start at 0, go up to ascent, then down to descent
-    path.moveTo(0, size.height);
-    path.lineTo(size.width * 0.5, size.height - (ascent / maxElevation) * size.height);
-    path.lineTo(size.width, size.height - (descent / maxElevation) * size.height);
+    path.moveTo(
+      labelWidth,
+      labelHeight + graphHeight - ((points[0].elevation - minElevation) / elevationRange) * graphHeight,
+    );
 
-    canvas.drawPath(path, paint);
+    for (int i = 1; i < points.length; i++) {
+      final segmentDistance = ElevationCalculations.haversine(
+        points[i - 1].latitude,
+        points[i - 1].longitude,
+        points[i].latitude,
+        points[i].longitude,
+      );
+      cumulativeDistance += segmentDistance;
+
+      final x = (cumulativeDistance / totalDistance) * graphWidth + labelWidth;
+      final y = labelHeight + graphHeight - ((points[i].elevation - minElevation) / elevationRange) * graphHeight;
+
+      path.lineTo(x, y);
+    }
+
+    canvas.drawPath(path, profilePaint);
+  }
+
+  void _drawGridAndLabels(
+      Canvas canvas,
+      double graphWidth,
+      double graphHeight,
+      double minElevation,
+      double maxElevation,
+      double labelWidth,
+      Paint gridPaint,
+      TextStyle textStyle,
+      ) {
+    const int numHorizontalLines = 5; // Number of elevation grid lines
+    const int numVerticalLines = 5;   // Number of distance grid lines
+    const double metersToFeet = 3.28084; // Conversion factor for elevation
+    const double metersToMiles = 0.000621371; // Conversion factor for distance
+    const double labelHeight = 20.0; // Must match the constant above
+
+    // Horizontal grid (elevation)
+    for (int i = 0; i <= numHorizontalLines; i++) {
+      final y = labelHeight + graphHeight * (1 - i / numHorizontalLines);
+      canvas.drawLine(
+        Offset(labelWidth, y),
+        Offset(graphWidth + labelWidth, y),
+        gridPaint,
+      );
+
+      if (i == 0 || i == numHorizontalLines) {
+        final elevation = minElevation + (maxElevation - minElevation) * (i / numHorizontalLines);
+        final elevationFeet = (elevation * metersToFeet).round();
+        final textSpan = TextSpan(text: '$elevationFeet ft', style: textStyle);
+        final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+        );
+        textPainter.layout();
+
+        final horizontalPadding = graphWidth * 0.02;
+        final verticalOffset = textPainter.height * 0.5;
+        textPainter.paint(
+          canvas,
+          Offset(
+            labelWidth - textPainter.width - horizontalPadding,
+            y - verticalOffset,
+          ),
+        );
+      }
+    }
+
+    // Vertical grid (distance)
+    for (int i = 0; i <= numVerticalLines; i++) {
+      final x = graphWidth * (i / numVerticalLines) + labelWidth;
+      canvas.drawLine(
+        Offset(x, labelHeight),
+        Offset(x, graphHeight + labelHeight),
+        gridPaint,
+      );
+
+      final distance = (totalDistance * metersToMiles) * (i / numVerticalLines);
+      final totalDistanceMiles = totalDistance * metersToMiles;
+      final distanceText = totalDistanceMiles < 5
+          ? distance.toStringAsFixed(1)
+          : distance.round().toString();
+      final textSpan = TextSpan(text: '$distanceText mi', style: textStyle);
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      final verticalPadding = graphHeight * 0.05;
+      textPainter.paint(
+        canvas,
+        Offset(
+          x - textPainter.width / 2,
+          graphHeight + labelHeight + verticalPadding,
+        ),
+      );
+    }
   }
 
   @override
@@ -64,9 +200,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   List<LatLngElevation> _trailPoints = [];
   List<LatLng> _tappedPoints = [];
   final String? key = dotenv.env['GRAPH_HOPPER_KEY'];
-  double _totalAscent = 0.0;
-  double _totalDescent = 0.0;
-  double _totalDistance = 0.0; // New field for total distance
+  double _totalDistance = 0.0;
   bool _isTrailInfoVisible = false;
 
   @override
@@ -119,7 +253,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       markers: _tappedPoints.map((point) => Marker(
         width: 20.0,
         height: 20.0,
-        point: point as LatLng,
+        point: point,
         child: Icon(
           Icons.pin_drop_outlined,
           size: 20,
@@ -162,9 +296,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
             _rotation = 0;
             _trailPoints = [];
             _tappedPoints = [];
-            _totalAscent = 0;
-            _totalDescent = 0;
-            _totalDistance = 0.0; // Reset distance
+            _totalDistance = 0.0;
             _isTrailInfoVisible = false;
           });
         },
@@ -233,10 +365,10 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     try {
       final TrailData trailData = await LocationService.fetchTrailRoute(start, end);
       setState(() {
-        _trailPoints.addAll(trailData.points); // Still use points here
+        // if there is only the initial point saved - overwrite it bc
+        //the first point is missing elevation data
+        _trailPoints.length == 1 ? _trailPoints = trailData.points : _trailPoints.addAll(trailData.points);
         _tappedPoints.add(end as LatLng);
-        _totalAscent += trailData.ascent;
-        _totalDescent += trailData.descent;
         _totalDistance += trailData.distance;
       });
     } catch (e) {
@@ -246,81 +378,105 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
 
   Widget _buildTrailInfoWidget() {
     return Positioned(
-      bottom: 60,
-      left: 10,
-      right: 10,
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _isTrailInfoVisible = !_isTrailInfoVisible;
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          height: _isTrailInfoVisible ? 200 : 40, // Increased height to accommodate graph
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppColors.creamyOffWhite.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      bottom: MediaQuery.of(context).size.height * 0.01,
+      child: Center(
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _isTrailInfoVisible = !_isTrailInfoVisible;
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 1),
+            width: _isTrailInfoVisible
+                ? MediaQuery.of(context).size.width * 0.95
+                : 40,
+            height: _isTrailInfoVisible
+                ? (MediaQuery.of(context).size.height * 0.3).clamp(0, 200)
+                : 40,
+            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppColors.creamyOffWhite.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _isTrailInfoVisible
+                ? SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Trail Info',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.softSlateBlue,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min, // Prevents Row from taking full width
+                        children: [
+                          CustomText(
+                            text: '${(_totalDistance * 0.000621371).toStringAsFixed(2)} mi.',
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.softSlateBlue,
+                          ),
+                          SizedBox(width: 8),
+                          CustomText(
+                              text: '${ElevationCalculations.calculateAscent(_trailPoints)}',
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.softSlateBlue
+                          ),
+                          Icon(
+                            Icons.arrow_upward,
+                            color: AppColors.forestGreen,
+                            size: 20, // Adjust size to match text
+                          ),
+                          SizedBox(width: 8),
+                          CustomText(
+                              text: '${ElevationCalculations.calculateDescent(_trailPoints)}',
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.softSlateBlue
+                          ),
+                          Icon(
+                            Icons.arrow_downward,
+                            color: AppColors.pleasantRed,
+                            size: 20, // Adjust size to match text
+                          ),
+                        ],
+                      ),
+                      Icon(
+                        Icons.expand_less,
+                        color: AppColors.softSlateBlue,
+                      ),
+                    ],
                   ),
-                  Icon(
-                    _isTrailInfoVisible ? Icons.expand_less : Icons.expand_more,
-                    color: AppColors.softSlateBlue,
+                  SizedBox(
+                    height: 80,
+                    width: MediaQuery.of(context).size.width - 20,
+                    child: CustomPaint(
+                      size: Size(
+                        (MediaQuery.of(context).size.width - 36) * 0.9,
+                        80,
+                      ),
+                      painter: ElevationProfilePainter(
+                        points: _trailPoints
+                      ),
+                    ),
                   ),
                 ],
               ),
-              if (_isTrailInfoVisible) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 80,
-                  child: CustomPaint(
-                    painter: ElevationProfilePainter(
-                      ascent: _totalAscent,
-                      descent: _totalDescent,
-                      distance: _totalDistance,
-                    ),
-                    child: Container(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Total Distance: ${_totalDistance.toStringAsFixed(2)} m',
-                  style: const TextStyle(color: AppColors.charcoalGray),
-                ),
-                Text(
-                  'Total Ascent: ${_totalAscent.toStringAsFixed(2)} m',
-                  style: const TextStyle(color: AppColors.charcoalGray),
-                ),
-                Text(
-                  'Total Descent: ${_totalDescent.toStringAsFixed(2)} m',
-                  style: const TextStyle(color: AppColors.charcoalGray),
-                ),
-                Text(
-                  'Max Elevation: ${(_totalAscent > _totalDescent ? _totalAscent : _totalDescent).toStringAsFixed(2)} m',
-                  style: const TextStyle(color: AppColors.charcoalGray),
-                ),
-              ],
-            ],
+            )
+                : Center(
+              child: Icon(
+                Icons.info,
+                color: AppColors.softSlateBlue,
+                size: 24,
+              ),
+            ),
           ),
         ),
       ),
@@ -340,9 +496,9 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
               ),
             ],
           ),
-          _buildCompass(),
+          if (!_isTrailInfoVisible) _buildCompass(), // Hide compass when trail info is expanded
           _buildSearchBar(),
-          _buildTrailInfoWidget(),
+          if (_trailPoints.length > 1) _buildTrailInfoWidget(), // Show info button only if trail exists
         ],
       ),
     );
