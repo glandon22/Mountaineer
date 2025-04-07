@@ -8,7 +8,6 @@ import 'package:mountaineer/models/latlng_elevation.dart';
 import '../constants/constants.dart';
 import '../utils/elevation_calculations.dart';
 
-
 class ElevationProfilePainter extends CustomPainter {
   final List<LatLngElevation> points;
   final double totalDistance; // Total distance in meters
@@ -21,17 +20,12 @@ class ElevationProfilePainter extends CustomPainter {
         ascent = ElevationCalculations.calculateAscent(points),
         descent = ElevationCalculations.calculateDescent(points);
 
-
   double _getMaxElevation() {
-    return points.isEmpty
-        ? 0.0
-        : points.map((point) => point.elevation).reduce(math.max);
+    return points.isEmpty ? 0.0 : points.map((point) => point.elevation).reduce(math.max);
   }
 
   double _getMinElevation() {
-    return points.isEmpty
-        ? 0.0
-        : points.map((point) => point.elevation).reduce(math.min);
+    return points.isEmpty ? 0.0 : points.map((point) => point.elevation).reduce(math.min);
   }
 
   @override
@@ -51,8 +45,13 @@ class ElevationProfilePainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    final profilePaint = Paint()
-      ..color = Colors.blue
+    final ascentPaint = Paint()
+      ..color = Colors.green // Green for ascending sections
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final descentPaint = Paint()
+      ..color = Colors.red // Red for descending sections
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -72,13 +71,8 @@ class ElevationProfilePainter extends CustomPainter {
       textStyle,
     );
 
-    final path = ui.Path();
+    // Draw segmented lines instead of a single path
     double cumulativeDistance = 0.0;
-
-    path.moveTo(
-      labelWidth,
-      labelHeight + graphHeight - ((points[0].elevation - minElevation) / elevationRange) * graphHeight,
-    );
 
     for (int i = 1; i < points.length; i++) {
       final segmentDistance = ElevationCalculations.haversine(
@@ -89,25 +83,32 @@ class ElevationProfilePainter extends CustomPainter {
       );
       cumulativeDistance += segmentDistance;
 
-      final x = (cumulativeDistance / totalDistance) * graphWidth + labelWidth;
-      final y = labelHeight + graphHeight - ((points[i].elevation - minElevation) / elevationRange) * graphHeight;
+      final x1 = (cumulativeDistance - segmentDistance) / totalDistance * graphWidth + labelWidth;
+      final y1 = labelHeight + graphHeight - ((points[i - 1].elevation - minElevation) / elevationRange) * graphHeight;
+      final x2 = cumulativeDistance / totalDistance * graphWidth + labelWidth;
+      final y2 = labelHeight + graphHeight - ((points[i].elevation - minElevation) / elevationRange) * graphHeight;
 
-      path.lineTo(x, y);
+      // Choose paint based on elevation change
+      final paint = (points[i].elevation > points[i - 1].elevation)
+          ? ascentPaint
+          : (points[i].elevation < points[i - 1].elevation)
+              ? descentPaint
+              : ascentPaint; // Default to ascent for flat sections
+
+      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), paint);
     }
-
-    canvas.drawPath(path, profilePaint);
   }
 
   void _drawGridAndLabels(
-      Canvas canvas,
-      double graphWidth,
-      double graphHeight,
-      double minElevation,
-      double maxElevation,
-      double labelWidth,
-      Paint gridPaint,
-      TextStyle textStyle,
-      ) {
+    Canvas canvas,
+    double graphWidth,
+    double graphHeight,
+    double minElevation,
+    double maxElevation,
+    double labelWidth,
+    Paint gridPaint,
+    TextStyle textStyle,
+  ) {
     const int numHorizontalLines = 5; // Number of elevation grid lines
     const int numVerticalLines = 5;   // Number of distance grid lines
     const double labelHeight = 20.0; // Must match the constant above

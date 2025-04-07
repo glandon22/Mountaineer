@@ -203,6 +203,22 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     }
   }
 
+  Widget _addCloseLayer() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isTrailInfoVisible = false;
+        });
+      },
+      behavior: HitTestBehavior.translucent, // Allows taps to pass through to map if needed
+      child: Container(
+        color: Colors.transparent, // Fully transparent to not obscure the UI
+        width: MediaQuery.of(context).size.width,
+        height: MediaQuery.of(context).size.height,
+      ),
+    );
+  }
+
   Widget _buildTrailInfoWidget() {
     return Positioned(
       bottom: MediaQuery.of(context).size.height * 0.01,
@@ -219,7 +235,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                 ? MediaQuery.of(context).size.width * 0.95
                 : 40,
             height: _isTrailInfoVisible
-                ? (MediaQuery.of(context).size.height * 0.3).clamp(0, 200)
+                ? (MediaQuery.of(context).size.height * 0.3).clamp(0, 150)
                 : 40,
             padding: const EdgeInsets.all(8),
             margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -326,6 +342,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           if (!_isTrailInfoVisible) _buildCompass(), // Hide compass when trail info is expanded
           _buildSearchBar(),
           if (_trailPoints.length > 1) _buildTrailInfoWidget(), // Show info button only if trail exists
+          if (_isTrailInfoVisible) _addCloseLayer()
         ],
       ),
     );
