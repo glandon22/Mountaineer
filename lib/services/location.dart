@@ -24,6 +24,7 @@ class LocationService {
   static final String? graphHopperKey = dotenv.env['GRAPH_HOPPER_KEY'];
 
   static Future<TrailData> fetchTrailRoute(LatLngElevation start, LatLngElevation end) async {
+    print('$start.longitude, $start.latitude, $end.longitude, $end.latitude');
     final String graphHopperURL = 'https://graphhopper.com/api/1/route?key=$graphHopperKey';
     try {
       final Map<String, dynamic> requestBody = {
