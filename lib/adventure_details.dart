@@ -203,128 +203,186 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     }
   }
 
-  Widget _addCloseLayer() {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isTrailInfoVisible = false;
-        });
-      },
-      behavior: HitTestBehavior.translucent, // Allows taps to pass through to map if needed
-      child: Container(
-        color: Colors.transparent, // Fully transparent to not obscure the UI
-        width: MediaQuery.of(context).size.width,
-        height: MediaQuery.of(context).size.height,
-      ),
-    );
-  }
-
   Widget _buildTrailInfoWidget() {
-    return Positioned(
-      bottom: MediaQuery.of(context).size.height * 0.01,
-      child: Center(
-        child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _isTrailInfoVisible = !_isTrailInfoVisible;
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 1),
-            width: _isTrailInfoVisible
-                ? MediaQuery.of(context).size.width * 0.95
-                : 40,
-            height: _isTrailInfoVisible
-                ? (MediaQuery.of(context).size.height * 0.3).clamp(0, 150)
-                : 40,
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: AppColors.creamyOffWhite.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: _isTrailInfoVisible
-                ? SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min, // Prevents Row from taking full width
-                        children: [
-                          CustomText(
-                            text: '${(_totalDistance * 0.000621371).toStringAsFixed(2)} mi.',
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.softSlateBlue,
-                          ),
-                          SizedBox(width: 8),
-                          CustomText(
-                              text: '${ElevationCalculations.calculateAscent(_trailPoints)}',
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.softSlateBlue
-                          ),
-                          Icon(
-                            Icons.arrow_upward,
-                            color: AppColors.forestGreen,
-                            size: 20, // Adjust size to match text
-                          ),
-                          SizedBox(width: 8),
-                          CustomText(
-                              text: '${ElevationCalculations.calculateDescent(_trailPoints)}',
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.softSlateBlue
-                          ),
-                          Icon(
-                            Icons.arrow_downward,
-                            color: AppColors.pleasantRed,
-                            size: 20, // Adjust size to match text
-                          ),
-                        ],
-                      ),
-                      Icon(
-                        Icons.expand_less,
-                        color: AppColors.softSlateBlue,
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 80,
-                    width: MediaQuery.of(context).size.width - 20,
-                    child: CustomPaint(
-                      size: Size(
-                        (MediaQuery.of(context).size.width - 36) * 0.9,
-                        80,
-                      ),
-                      painter: ElevationProfilePainter(
-                        points: _trailPoints
-                      ),
-                    ),
+  return Stack(
+    children: [
+      Positioned(
+        bottom: MediaQuery.of(context).size.height * 0.01,
+        child: Center(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _isTrailInfoVisible = !_isTrailInfoVisible;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 1),
+              width: _isTrailInfoVisible
+                  ? MediaQuery.of(context).size.width * 0.95
+                  : 40,
+              height: _isTrailInfoVisible
+                  ? (MediaQuery.of(context).size.height * 0.3).clamp(0, 150)
+                  : 40,
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: AppColors.creamyOffWhite.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
-            )
-                : Center(
-              child: Icon(
-                Icons.info,
-                color: AppColors.softSlateBlue,
-                size: 24,
-              ),
+              child: _isTrailInfoVisible
+                  ? SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CustomText(
+                                    text: '${(_totalDistance * 0.000621371).toStringAsFixed(2)} mi.',
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.softSlateBlue,
+                                  ),
+                                  SizedBox(width: 8),
+                                  CustomText(
+                                    text: '${ElevationCalculations.calculateAscent(_trailPoints)}',
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.softSlateBlue,
+                                  ),
+                                  Icon(
+                                    Icons.arrow_upward,
+                                    color: AppColors.forestGreen,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  CustomText(
+                                    text: '${ElevationCalculations.calculateDescent(_trailPoints)}',
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.softSlateBlue,
+                                  ),
+                                  Icon(
+                                    Icons.arrow_downward,
+                                    color: AppColors.pleasantRed,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
+                              Icon(
+                                Icons.expand_less,
+                                color: AppColors.softSlateBlue,
+                              ),
+                            ],
+                          ),
+                          SizedBox(
+                            height: 80,
+                            width: MediaQuery.of(context).size.width - 20,
+                            child: CustomPaint(
+                              size: Size(
+                                (MediaQuery.of(context).size.width - 36) * 0.9,
+                                80,
+                              ),
+                              painter: ElevationProfilePainter(points: _trailPoints),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Center(
+                      child: Icon(
+                        Icons.info,
+                        color: AppColors.softSlateBlue,
+                        size: 24,
+                      ),
+                    ),
             ),
           ),
         ),
       ),
-    );
-  }
+      if (_isTrailInfoVisible)
+        Positioned(
+          bottom: 175,
+          right: 20, // Horizontal positioning
+          child: Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.creamyOffWhite.withOpacity(0.9), // Background color
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    Icons.undo,
+                    color: AppColors.pleasantRed,
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.all(8), // Adjust padding for size
+                  constraints: BoxConstraints(minWidth: 40, minHeight: 40), // Ensure circular size
+                  onPressed: () {
+                    setState(() {
+                      // Define your undo action here, e.g., remove last point
+                      if (_trailPoints.isNotEmpty) {
+                        _trailPoints.removeLast();
+                      }
+                    });
+                  },
+                ),
+              ),
+              SizedBox(width: 10),
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.creamyOffWhite.withOpacity(0.9), // Background color
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()..scale(-1.0, 1.0),
+                    child: Icon(
+                      Icons.undo,
+                      color: AppColors.charcoalGray,
+                      size: 20,
+                    ),
+                  ),
+                  padding: EdgeInsets.all(8), // Adjust padding for size
+                  constraints: BoxConstraints(minWidth: 40, minHeight: 40), // Ensure circular size
+                  onPressed: () {
+                    setState(() {
+                      // Define your redo action here, e.g., restore last point
+                      // This assumes you have a way to track redo state
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +400,6 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           if (!_isTrailInfoVisible) _buildCompass(), // Hide compass when trail info is expanded
           _buildSearchBar(),
           if (_trailPoints.length > 1) _buildTrailInfoWidget(), // Show info button only if trail exists
-          if (_isTrailInfoVisible) _addCloseLayer()
         ],
       ),
     );
