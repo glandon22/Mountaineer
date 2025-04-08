@@ -24,8 +24,12 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   final MapController _mapController = MapController();
   double _rotation = 0.0;
   final TextEditingController _searchController = TextEditingController();
-  List<LatLngElevation> _trailPoints = [];
+  List<List<LatLngElevation>> _trailPoints = [];
+  // holder to undone trail points, in case the user wants to re-add them
+  List<List<LatLngElevation>> _poppedTrailPoints = [];
   List<LatLng> _tappedPoints = [];
+  // holder to undone tapped points, in case the user wants to re-add them
+  List<LatLng> _poppedTappedPoints = [];
   final String? key = dotenv.env['GRAPH_HOPPER_KEY'];
   double _totalDistance = 0.0;
   bool _isTrailInfoVisible = false;
@@ -46,13 +50,16 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
   void _onMapTap(LatLng point) {
     setState(() {
       _tappedPoints.add(point);
+      // clear any undone and save points since we have now selected a new trial
+      _poppedTappedPoints = [];
+      _poppedTrailPoints = [];
     });
     if (_trailPoints.isEmpty) {
       setState(() {
-        _trailPoints.add(LatLngElevation(point.latitude, point.longitude, 0));
+        _trailPoints.add([LatLngElevation(point.latitude, point.longitude, 0)]);
       });
     } else {
-      _fetchTrailRoute(_trailPoints.last, LatLngElevation(point.latitude, point.longitude, 0));
+      _fetchTrailRoute(_trailPoints.last.last, LatLngElevation(point.latitude, point.longitude, 0));
     }
   }
 
@@ -63,32 +70,36 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
     );
   }
 
-  PolylineLayer _buildTrailLine() {
-    return PolylineLayer(
-      polylines: [
-        Polyline(
-          points: _trailPoints as List<LatLng>,
-          strokeWidth: 4.0,
-          color: AppColors.forestGreen,
-        ),
-      ],
-    );
-  }
-
-  MarkerLayer _buildTappedPoints() {
-    return MarkerLayer(
+  Widget buildTrailLayer(List<LatLng> highlightPoints) {
+  List<LatLng> allPoints = _trailPoints.expand((item) => item).toList() as List<LatLng>;
+  return Stack(
+    children: [
+      // Polyline layer for the trail
+      PolylineLayer(
+        polylines: [
+          Polyline(
+            points: allPoints,
+            strokeWidth: 4.0,
+            color: AppColors.forestGreen,
+          ),
+        ],
+      ),
+      // Marker layer for the highlighted points
+      MarkerLayer(
       markers: _tappedPoints.map((point) => Marker(
         width: 20.0,
         height: 20.0,
         point: point,
         child: Icon(
-          Icons.pin_drop_outlined,
+          Icons.circle,
           size: 20,
           color: AppColors.dustyOrange,
         ),
       )).toList(),
-    );
-  }
+    )
+    ],
+  );
+}
 
   FlutterMap _buildFlutterMap() {
     return FlutterMap(
@@ -104,8 +115,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
         ),
         FadeMarker(point: _center),
-        if (_trailPoints.isNotEmpty) _buildTrailLine(),
-        if (_tappedPoints.isNotEmpty) _buildTappedPoints(),
+        if (_trailPoints.isNotEmpty) buildTrailLayer(_tappedPoints),
       ],
     );
   }
@@ -194,8 +204,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
       setState(() {
         // if there is only the initial point saved - overwrite it bc
         //the first point is missing elevation data
-        _trailPoints.length == 1 ? _trailPoints = trailData.points : _trailPoints.addAll(trailData.points);
-        _tappedPoints.add(end as LatLng);
+        _trailPoints = [..._trailPoints, trailData.points];
         _totalDistance += trailData.distance;
       });
     } catch (e) {
@@ -255,7 +264,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                                   ),
                                   SizedBox(width: 8),
                                   CustomText(
-                                    text: '${ElevationCalculations.calculateAscent(_trailPoints)}',
+                                    text: '${ElevationCalculations.calculateAscent(_trailPoints.expand((item) => item).toList())}',
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.softSlateBlue,
                                   ),
@@ -266,7 +275,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                                   ),
                                   SizedBox(width: 8),
                                   CustomText(
-                                    text: '${ElevationCalculations.calculateDescent(_trailPoints)}',
+                                    text: '${ElevationCalculations.calculateDescent(_trailPoints.expand((item) => item).toList())}',
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.softSlateBlue,
                                   ),
@@ -291,7 +300,7 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                                 (MediaQuery.of(context).size.width - 36) * 0.9,
                                 80,
                               ),
-                              painter: ElevationProfilePainter(points: _trailPoints),
+                              painter: ElevationProfilePainter(points: _trailPoints.expand((item) => item).toList()),
                             ),
                           ),
                         ],
@@ -336,9 +345,12 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                   constraints: BoxConstraints(minWidth: 40, minHeight: 40), // Ensure circular size
                   onPressed: () {
                     setState(() {
-                      // Define your undo action here, e.g., remove last point
                       if (_trailPoints.isNotEmpty) {
-                        _trailPoints.removeLast();
+                        _poppedTrailPoints.add(_trailPoints.removeLast());
+                        _poppedTappedPoints.add(_tappedPoints.removeLast());
+                        if (_trailPoints.isEmpty || _trailPoints.length == 1) {
+                          _isTrailInfoVisible = false;
+                        }
                       }
                     });
                   },
@@ -363,18 +375,20 @@ class _HikeDetailsPageState extends State<HikeDetailsPage> {
                     transform: Matrix4.identity()..scale(-1.0, 1.0),
                     child: Icon(
                       Icons.undo,
-                      color: AppColors.charcoalGray,
+                      color: _poppedTrailPoints.isEmpty ? Colors.grey : AppColors.charcoalGray,
                       size: 20,
                     ),
                   ),
                   padding: EdgeInsets.all(8), // Adjust padding for size
                   constraints: BoxConstraints(minWidth: 40, minHeight: 40), // Ensure circular size
-                  onPressed: () {
-                    setState(() {
-                      // Define your redo action here, e.g., restore last point
-                      // This assumes you have a way to track redo state
-                    });
-                  },
+                 onPressed: _poppedTrailPoints.isEmpty ? null // Disables the button
+                  : () {
+                      setState(() {
+                        _tappedPoints.add(_poppedTappedPoints.removeLast());
+                        _trailPoints.add(_poppedTrailPoints.removeLast());
+
+                      });
+                    },
                 ),
               ),
             ],
