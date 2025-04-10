@@ -52,6 +52,10 @@ class ToggleTrailInfo extends TrailEvent {
   const ToggleTrailInfo();
 }
 
+class SaveTrail extends TrailEvent {
+  const SaveTrail();
+}
+
 // State
 class TrailState extends Equatable {
   final LatLng center;
@@ -127,6 +131,7 @@ class TrailBloc extends Bloc<TrailEvent, TrailState> {
     on<ResetMap>(_onResetMap);
     on<UndoTrail>(_onUndoTrail);
     on<RedoTrail>(_onRedoTrail);
+    on<SaveTrail>(_onSaveTrail);
     on<ToggleTrailInfo>(_onToggleTrailInfo);
   }
 
@@ -136,6 +141,19 @@ class TrailBloc extends Bloc<TrailEvent, TrailState> {
 
   void _onRotateMap(RotateMap event, Emitter<TrailState> emit) {
     emit(state.copyWith(rotation: event.rotation));
+  }
+
+  Future<void> _onSaveTrail(SaveTrail event, Emitter<TrailState> emit) async {
+    // Placeholder for save logic
+    print('Saving trail with points: ${state.trailPoints}');
+    // Example: Save to local storage, API, etc.
+    // For now, just log it
+    try {
+      // Add your save logic here (e.g., database, file)
+      print('Trail saved successfully');
+    } catch (e) {
+      print('Error saving trail: $e');
+    }
   }
 
   Future<void> _onTapMap(TapMap event, Emitter<TrailState> emit) async {

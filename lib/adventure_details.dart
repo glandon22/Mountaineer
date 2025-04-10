@@ -314,47 +314,61 @@ class HikeDetailsPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final mapController = MapController();
-    final searchController = TextEditingController();
+Widget build(BuildContext context) {
+  final mapController = MapController();
+  final searchController = TextEditingController();
 
-    return BlocProvider(
-      create: (context) => TrailBloc(initialCenter)
-        ..add(InitializeTrail(initialCenter)), // Initialize with initialCenter
-      child: BlocListener<TrailBloc, TrailState>(
-  listener: (context, state) {
-    print('empty');
-  },
-  child: Scaffold(
-    appBar: _buildAppBar(),
-    body: Stack(
-      children: [
-        Column(
-          children: [
-            Expanded(
-              child: _buildFlutterMap(mapController),
+  return BlocProvider(
+    create: (context) => TrailBloc(initialCenter)
+      ..add(InitializeTrail(initialCenter)), // Initialize with initialCenter
+    child: Scaffold( // Removed BlocListener since it was empty
+      appBar: _buildAppBar(),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Expanded(
+                child: _buildFlutterMap(mapController),
+              ),
+            ],
+          ),
+          BlocBuilder<TrailBloc, TrailState>(
+            builder: (context, state) {
+              return state.isTrailInfoVisible
+                  ? const SizedBox.shrink()
+                  : _buildCompass(mapController);
+            },
+          ),
+          _buildSearchBar(searchController, mapController),
+          BlocBuilder<TrailBloc, TrailState>(
+            builder: (context, state) {
+              return state.trailPoints.isNotEmpty
+                  ? _buildTrailInfoWidget(mapController)
+                  : const SizedBox.shrink();
+            },
+          ),
+          BlocBuilder<TrailBloc, TrailState>(
+            builder: (context, state) {
+              return Positioned(
+            top: 65,
+            right: 10,
+            child: IconButton(
+              icon: Icon(
+                Icons.save,
+                color: AppColors.softSlateBlue,
+                size: 30,
+              ),
+              onPressed: () {
+                context.read<TrailBloc>().add(const SaveTrail());
+              },
+              tooltip: 'Save Trail', // Accessibility
             ),
-          ],
-        ),
-        BlocBuilder<TrailBloc, TrailState>(
-          builder: (context, state) {
-            return state.isTrailInfoVisible
-                ? const SizedBox.shrink()
-                : _buildCompass(mapController);
-          },
-        ),
-        _buildSearchBar(searchController, mapController),
-        BlocBuilder<TrailBloc, TrailState>(
-          builder: (context, state) {
-            return state.trailPoints.isNotEmpty
-                ? _buildTrailInfoWidget(mapController)
-                : const SizedBox.shrink();
-          },
-        ),
-      ],
+          );
+            },
+          ),
+        ],
+      ),
     ),
-  ),
-),
-    );
-  }
+  );
+}
 }
