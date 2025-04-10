@@ -104,7 +104,7 @@ class HikeDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchBar(TextEditingController searchController) {
+  Widget _buildSearchBar(TextEditingController searchController, MapController mapController) {
     return BlocBuilder<TrailBloc, TrailState>(builder: (context, state) {
       return Positioned(
       top: 10,
@@ -130,10 +130,10 @@ class HikeDetailsPage extends StatelessWidget {
             contentPadding: const EdgeInsets.all(12),
             suffixIcon: IconButton(
               icon: const Icon(Icons.search),
-              onPressed: () => context.read<TrailBloc>().add(SearchLocation(searchController.text)),
+              onPressed: () => context.read<TrailBloc>().add(SearchLocation(searchController.text, mapController)),
             ),
           ),
-          onSubmitted: (query) => context.read<TrailBloc>().add(SearchLocation(query)),
+          onSubmitted: (query) => context.read<TrailBloc>().add(SearchLocation(query, mapController)),
         ),
       ),
     );
@@ -322,46 +322,39 @@ class HikeDetailsPage extends StatelessWidget {
       create: (context) => TrailBloc(initialCenter)
         ..add(InitializeTrail(initialCenter)), // Initialize with initialCenter
       child: BlocListener<TrailBloc, TrailState>(
-        listener: (context, state) {
-          // Update map position when center changes (e.g., from search)
-          if (state.isFromSearch && state.center != mapController.camera.center) {
-            mapController.move(state.center, 13.0);
-            context.read<TrailBloc>().add(MovedMapCenter());
-          }
-          // Handle errors from async operations
-          // Note: You might need to add error states to TrailState for this
-          // For now, we'll assume errors are handled in the UI via ScaffoldMessenger
-        },
-        child: Scaffold(
-          appBar: _buildAppBar(),
-          body: Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: _buildFlutterMap(mapController),
-                  ),
-                ],
-              ),
-              BlocBuilder<TrailBloc, TrailState>(
-                builder: (context, state) {
-                  return state.isTrailInfoVisible
-                      ? const SizedBox.shrink()
-                      : _buildCompass(mapController);
-                },
-              ),
-              _buildSearchBar(searchController),
-              BlocBuilder<TrailBloc, TrailState>(
-                builder: (context, state) {
-                  return state.trailPoints.isNotEmpty
-                      ? _buildTrailInfoWidget(mapController)
-                      : const SizedBox.shrink();
-                },
-              ),
-            ],
-          ),
+  listener: (context, state) {
+    print('empty');
+  },
+  child: Scaffold(
+    appBar: _buildAppBar(),
+    body: Stack(
+      children: [
+        Column(
+          children: [
+            Expanded(
+              child: _buildFlutterMap(mapController),
+            ),
+          ],
         ),
-      ),
+        BlocBuilder<TrailBloc, TrailState>(
+          builder: (context, state) {
+            return state.isTrailInfoVisible
+                ? const SizedBox.shrink()
+                : _buildCompass(mapController);
+          },
+        ),
+        _buildSearchBar(searchController, mapController),
+        BlocBuilder<TrailBloc, TrailState>(
+          builder: (context, state) {
+            return state.trailPoints.isNotEmpty
+                ? _buildTrailInfoWidget(mapController)
+                : const SizedBox.shrink();
+          },
+        ),
+      ],
+    ),
+  ),
+),
     );
   }
 }

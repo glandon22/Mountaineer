@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:equatable/equatable.dart';
 import 'package:mountaineer/models/latlng_elevation.dart';
@@ -31,7 +32,8 @@ class TapMap extends TrailEvent {
 
 class SearchLocation extends TrailEvent {
   final String query;
-  const SearchLocation(this.query);
+  final MapController mapController;
+  const SearchLocation(this.query, this.mapController);
 }
 
 class ResetMap extends TrailEvent {
@@ -48,10 +50,6 @@ class RedoTrail extends TrailEvent {
 
 class ToggleTrailInfo extends TrailEvent {
   const ToggleTrailInfo();
-}
-
-class MovedMapCenter extends TrailEvent {
-  const MovedMapCenter();
 }
 
 // State
@@ -130,11 +128,6 @@ class TrailBloc extends Bloc<TrailEvent, TrailState> {
     on<UndoTrail>(_onUndoTrail);
     on<RedoTrail>(_onRedoTrail);
     on<ToggleTrailInfo>(_onToggleTrailInfo);
-    on<MovedMapCenter>(_onMovedMapCenter);
-  }
-
-  void _onMovedMapCenter(MovedMapCenter event, Emitter<TrailState> emit) {
-    emit(state.copyWith(isFromSearch: false));
   }
 
   void _onInitializeTrail(InitializeTrail event, Emitter<TrailState> emit) {
@@ -179,7 +172,7 @@ class TrailBloc extends Bloc<TrailEvent, TrailState> {
     try {
       final newCenter = await LocationService.searchLocation(event.query);
       if (newCenter != null) {
-        emit(state.copyWith(center: newCenter, isFromSearch: true));
+       event.mapController.move(newCenter, 13.0);
       }
     } catch (e) {
       // Error handling in UI
