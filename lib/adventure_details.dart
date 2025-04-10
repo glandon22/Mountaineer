@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mountaineer/bloc/trail/trail_bloc.dart';
-import 'package:mountaineer/models/latlng_elevation.dart';
 import 'package:mountaineer/widgets/elevation_profile.dart';
 import 'package:mountaineer/widgets/fade_marker.dart';
 import 'package:mountaineer/colors.dart';
