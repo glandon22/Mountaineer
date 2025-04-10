@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart'; // For LatLng
 import 'package:geolocator/geolocator.dart';
@@ -49,9 +51,32 @@ class HomeState extends Equatable {
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   HomeBloc()
       : super(const HomeState(
-          loc: LatLng(37.67744, -113.06101), // Default location
+          loc: LatLng(37.67744, -113.06101),
         )) {
     on<FetchUserLocation>(_onFetchUserLocation);
+
+    // Initial background fetch
+    if (!isClosed) {
+      unawaited(_fetchBackgroundLocation());
+    }
+  }
+
+  Future<void> _fetchBackgroundLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.bestForNavigation,
+      );
+      if (!isClosed) {
+        emit(state.copyWith(
+          loc: LatLng(position.latitude, position.longitude),
+          userLocSet: true,
+        ));
+      }
+    } catch (e) {
+      if (!isClosed) {
+        print('Error fetching initial position: $e');
+      }
+    }
   }
 
   Future<void> _onFetchUserLocation(
@@ -62,6 +87,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.bestForNavigation,
         );
+        print('getting the user loc : ${LatLng(position.latitude, position.longitude)}');
         emit(state.copyWith(
           loc: LatLng(position.latitude, position.longitude),
           userLocSet: true,
@@ -72,20 +98,5 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         print('Error fetching position: $e');
       }
     }
-
-    // Background fetch
-    Future(() async {
-      try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.bestForNavigation,
-        );
-        emit(state.copyWith(
-          loc: LatLng(position.latitude, position.longitude),
-          userLocSet: true,
-        ));
-      } catch (e) {
-        print('Error fetching initial position: $e');
-      }
-    });
   }
 }
