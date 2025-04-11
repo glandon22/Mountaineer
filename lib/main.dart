@@ -110,14 +110,11 @@ class MyHomePage extends StatelessWidget {
 
       if (permissionResult != null) {
         if (permissionResult == LocationPermission.denied) {
-          print('Permission denied');
         } else if (permissionResult == LocationPermission.always ||
             permissionResult == LocationPermission.whileInUse) {
-          print('we are here');
           bloc.add(const FetchUserLocation(true)); // Fetch immediately
           await bloc.stream.firstWhere((state) => state.userLocSet || !state.isLoading);
           final state = bloc.state;
-          print('st ${state.loc}');
           if (!state.isLoading) { // Navigate only if not loading
             Navigator.push(
               context,

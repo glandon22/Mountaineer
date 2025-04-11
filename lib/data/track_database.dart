@@ -18,6 +18,7 @@ class TrackDatabase {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
+    print('Database path: $path');
     return await openDatabase(
       path,
       version: 1,

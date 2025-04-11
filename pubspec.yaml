@@ -37,7 +37,7 @@ dependencies:
   latlong2: ^0.9.0    # For latitude/longitude handling
   http: ^1.2.0        # For API requests to Overpass
   geolocator: ^10.1.0
-  sqflite: ^2.0.0+4
+  sqflite: ^2.3.3+1
   path: ^1.8.0
 
   # The following adds the Cupertino Icons font to your application.

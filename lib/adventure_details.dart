@@ -10,7 +10,6 @@ import 'package:mountaineer/widgets/hike_details/compass_button.dart';
 import 'package:mountaineer/widgets/hike_details/save_button.dart';
 import 'package:mountaineer/widgets/hike_details/trail_info.dart';
 
-
 class HikeDetailsPage extends StatelessWidget {
   final LatLng initialCenter;
 
