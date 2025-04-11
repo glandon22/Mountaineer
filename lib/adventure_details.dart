@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mountaineer/bloc/trail/trail_bloc.dart';
 import 'package:mountaineer/colors.dart';
 import 'package:mountaineer/widgets/hike_details/map_view.dart';
-import 'package:mountaineer/widgets/hike_details/search_bar.dart' as InternalSearchBar;
+import 'package:mountaineer/widgets/hike_details/search_bar.dart' as internal_search_bar;
 import 'package:mountaineer/widgets/hike_details/compass_button.dart';
 import 'package:mountaineer/widgets/hike_details/save_button.dart';
 import 'package:mountaineer/widgets/hike_details/trail_info.dart';
@@ -36,7 +36,7 @@ Widget build(BuildContext context) {
       body: Stack(
         children: [
           MapView(mapController: mapController),
-          InternalSearchBar.SearchBar(controller: searchController, mapController: mapController),
+          internal_search_bar.SearchBar(controller: searchController, mapController: mapController),
           CompassButton(mapController: mapController),
           TrailInfo(mapController: mapController),
           SaveButton(),
