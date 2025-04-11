@@ -5,6 +5,8 @@ import 'adventure_details.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/home/home_bloc.dart';
+import '../data/track_database.dart'; // Import TrackDatabase
+import '../models/track.dart'; // Import Track model
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -52,21 +54,39 @@ class MyApp extends StatelessWidget {
           bodyMedium: TextStyle(color: AppColors.charcoalGray),
         ),
       ),
-      home: BlocProvider(
-        create: (context) => HomeBloc()..add(const FetchUserLocation(false)), // Initialize with background fetch
-        child: const MyHomePage(title: 'Mountaineer'),
-      ),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => BlocProvider(
+              create: (context) => HomeBloc()..add(const FetchUserLocation(false)),
+              child: const MyHomePage(title: 'Mountaineer'),
+            ),
+        // Add other routes as needed, e.g., '/hike_details': (context) => HikeDetailsPage(...)
+      },
     );
   }
 }
 
-class MyHomePage extends StatelessWidget {
+class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
   final String title;
 
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  Future<List<Track>>? _tracksFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch tracks when the page loads
+    _tracksFuture = TrackDatabase.instance.getAllTracks();
+  }
+
   Future<void> _promptGeolocationWithDialog(BuildContext context) async {
-    final bloc = context.read<HomeBloc>(); // Access the Bloc
+    final bloc = context.read<HomeBloc>();
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -110,12 +130,13 @@ class MyHomePage extends StatelessWidget {
 
       if (permissionResult != null) {
         if (permissionResult == LocationPermission.denied) {
+          // Handle denial if needed
         } else if (permissionResult == LocationPermission.always ||
             permissionResult == LocationPermission.whileInUse) {
-          bloc.add(const FetchUserLocation(true)); // Fetch immediately
+          bloc.add(const FetchUserLocation(true));
           await bloc.stream.firstWhere((state) => state.userLocSet || !state.isLoading);
           final state = bloc.state;
-          if (!state.isLoading) { // Navigate only if not loading
+          if (!state.isLoading) {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -130,7 +151,7 @@ class MyHomePage extends StatelessWidget {
       print("not prompting - already allowed access");
       if (!bloc.state.userLocSet) bloc.add(const FetchUserLocation(true));
       final state = bloc.state;
-      if (!state.isLoading) { // Navigate only if not loading
+      if (!state.isLoading) {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -146,18 +167,111 @@ class MyHomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.mossGreen,
-        title: Text(title),
+        title: Text(widget.title),
       ),
-      body: Center(
-        child: BlocBuilder<HomeBloc, HomeState>(
-          builder: (context, state) {
-            return state.isLoading
-                ? const CircularProgressIndicator()
-                : const SizedBox.shrink(); // Empty center when not loading
-          },
-        ),
+      body: Column(
+        children: [
+          // Optional: Keep BlocBuilder for HomeBloc state if needed
+          BlocBuilder<HomeBloc, HomeState>(
+            builder: (context, state) {
+              return state.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : const SizedBox.shrink();
+            },
+          ),
+          // Tracks list
+          Expanded(
+            child: FutureBuilder<List<Track>>(
+              future: _tracksFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error loading tracks: ${snapshot.error}',
+                      style: TextStyle(color: AppColors.charcoalGray),
+                    ),
+                  );
+                }
+                final tracks = snapshot.data ?? [];
+                if (tracks.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No tracks saved yet',
+                      style: TextStyle(
+                        color: AppColors.charcoalGray,
+                        fontSize: 16,
+                      ),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: tracks.length,
+                  itemBuilder: (context, index) {
+                    final track = tracks[index];
+                    return Card(
+                      color: AppColors.warmTaupe,
+                      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                      child: ListTile(
+                        title: Text(
+                          track.name,
+                          style: TextStyle(
+                            color: AppColors.softSlateBlue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Distance: ${track.distance?.toStringAsFixed(2)} km',
+                              style: TextStyle(color: AppColors.charcoalGray),
+                            ),
+                            Text(
+                              'Elevation Gain: ${track.elevationGain?.toStringAsFixed(2)} m',
+                              style: TextStyle(color: AppColors.charcoalGray),
+                            ),
+                            if (track.tags.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Wrap(
+                                  spacing: 4,
+                                  children: track.tags
+                                      .map(
+                                        (tag) => Chip(
+                                          label: Text(
+                                            tag,
+                                            style: TextStyle(
+                                              color: AppColors.creamyOffWhite,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          backgroundColor: AppColors.mossGreen,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                          ],
+                        ),
+                        onTap: () {
+                          // Optional: Navigate to a track details page
+                          // Navigator.push(context, MaterialPageRoute(builder: (context) => TrackDetailsPage(track: track)));
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: AppColors.dustyOrange,
         onPressed: () async {
           await _promptGeolocationWithDialog(context);
         },
