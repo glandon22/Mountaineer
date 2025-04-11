@@ -4,10 +4,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mountaineer/bloc/trail/trail_bloc.dart';
 import 'package:mountaineer/widgets/elevation_profile.dart';
-import 'package:mountaineer/widgets/fade_marker.dart';
 import 'package:mountaineer/colors.dart';
 import 'package:mountaineer/widgets/custom_text.dart';
 import 'package:mountaineer/utils/elevation_calculations.dart';
+import 'package:mountaineer/widgets/hike_details/map_view.dart';
+import 'package:mountaineer/widgets/hike_details/search_bar.dart' as InternalSearchBar;
+import 'package:mountaineer/widgets/hike_details/compass_button.dart';
+import 'package:mountaineer/widgets/hike_details/save_button.dart';
+
 
 class HikeDetailsPage extends StatelessWidget {
   final LatLng initialCenter;
@@ -18,62 +22,6 @@ class HikeDetailsPage extends StatelessWidget {
     return AppBar(
       title: const Text('Explore Map'),
       backgroundColor: AppColors.softSlateBlue,
-    );
-  }
-
-  Widget buildTrailLayer(List<LatLng> highlightPoints) {
-    return BlocBuilder<TrailBloc, TrailState>(
-      builder: (context, state) {
-        List<LatLng> allPoints = state.trailPoints.expand((item) => item).toList() as List<LatLng>;
-        return Stack(
-          children: [
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: allPoints,
-                  strokeWidth: 2.0,
-                  color: AppColors.forestGreen,
-                ),
-              ],
-            ),
-            MarkerLayer(
-              markers: state.tappedPoints.map((point) => Marker(
-                width: 20.0,
-                height: 20.0,
-                point: point,
-                child: Icon(
-                  Icons.circle,
-                  size: 20,
-                  color: AppColors.dustyOrange,
-                ),
-              )).toList(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFlutterMap(MapController mapController) {
-    return BlocBuilder<TrailBloc, TrailState>(
-      builder: (context, state) {
-        return FlutterMap(
-          mapController: mapController,
-          options: MapOptions(
-            initialZoom: 13.0,
-            initialRotation: state.rotation,
-            initialCenter: state.center,
-            onTap: (_, point) => context.read<TrailBloc>().add(TapMap(point)),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            ),
-            FadeMarker(point: state.center),
-            if (state.trailPoints.isNotEmpty) buildTrailLayer(state.tappedPoints),
-          ],
-        );
-      },
     );
   }
 
@@ -101,42 +49,6 @@ class HikeDetailsPage extends StatelessWidget {
         );
       },
     );
-  }
-
-  Widget _buildSearchBar(TextEditingController searchController, MapController mapController) {
-    return BlocBuilder<TrailBloc, TrailState>(builder: (context, state) {
-      return Positioned(
-      top: 10,
-      left: 10,
-      right: 10,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: TextField(
-          controller: searchController,
-          decoration: InputDecoration(
-            hintText: 'Search location...',
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.all(12),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () => context.read<TrailBloc>().add(SearchLocation(searchController.text, mapController)),
-            ),
-          ),
-          onSubmitted: (query) => context.read<TrailBloc>().add(SearchLocation(query, mapController)),
-        ),
-      ),
-    );
-    });
   }
 
   Widget _buildTrailInfoWidget(MapController mapController) {
@@ -324,21 +236,9 @@ Widget build(BuildContext context) {
       appBar: _buildAppBar(),
       body: Stack(
         children: [
-          Column(
-            children: [
-              Expanded(
-                child: _buildFlutterMap(mapController),
-              ),
-            ],
-          ),
-          BlocBuilder<TrailBloc, TrailState>(
-            builder: (context, state) {
-              return state.isTrailInfoVisible
-                  ? const SizedBox.shrink()
-                  : _buildCompass(mapController);
-            },
-          ),
-          _buildSearchBar(searchController, mapController),
+          MapView(mapController: mapController),
+          InternalSearchBar.SearchBar(controller: searchController, mapController: mapController),
+          CompassButton(mapController: mapController),
           BlocBuilder<TrailBloc, TrailState>(
             builder: (context, state) {
               return state.trailPoints.isNotEmpty
@@ -346,25 +246,7 @@ Widget build(BuildContext context) {
                   : const SizedBox.shrink();
             },
           ),
-          BlocBuilder<TrailBloc, TrailState>(
-            builder: (context, state) {
-              return Positioned(
-            top: 65,
-            right: 10,
-            child: IconButton(
-              icon: Icon(
-                Icons.save,
-                color: AppColors.softSlateBlue,
-                size: 30,
-              ),
-              onPressed: () {
-                context.read<TrailBloc>().add(const SaveTrail());
-              },
-              tooltip: 'Save Trail', // Accessibility
-            ),
-          );
-            },
-          ),
+          SaveButton(),
         ],
       ),
     ),
