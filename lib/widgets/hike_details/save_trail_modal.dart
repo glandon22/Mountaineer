@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../data/track_database.dart';
 import '../../models/track.dart';
+import '../../main.dart';
 
 class SaveTrailModal extends StatefulWidget {
   final double distance;
@@ -97,16 +98,11 @@ class _SaveTrailModalState extends State<SaveTrailModal> {
 
             try {
               await TrackDatabase.instance.createTrack(track);
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Hike saved successfully')),
-              );
-              /*Navigator.push(
-                context,
+              Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const MyApp(),
+                  builder: (context) => const MountaineerApp(),
                 ),
-              );*/
+              );
             } catch (e) {
               print(e);
               ScaffoldMessenger.of(context).showSnackBar(

@@ -20,17 +20,6 @@ class SaveButton extends StatelessWidget {
     required this.captureMapImage,
   });
 
-  Future<void> saveImageToFile(Uint8List imageBytes) async {
-          try {
-            final directory = await getApplicationDocumentsDirectory();
-            final file = File('${directory.path}/test.png');
-            await file.writeAsBytes(imageBytes);
-            print('Image saved to: ${file.path}');
-          } catch (e) {
-            print('Error saving image to file: $e');
-          }
-        }
-
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -51,11 +40,7 @@ class SaveButton extends StatelessWidget {
           
           // Capture the map image
           final trailImage = await captureMapImage();
-          if (trailImage != null) {
-            await saveImageToFile(trailImage);
-          } else {
-            print('No image captured to save');
-          }
+          
           // Show the modal
           showDialog(
             context: context,
