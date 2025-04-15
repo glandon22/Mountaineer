@@ -35,7 +35,7 @@ class HikeDetailsPage extends StatelessWidget {
       child: BlocBuilder<TrailBloc, TrailState>(
         builder: (context, state) {
           // Access trailPoints from the state (adjust based on your state structure)
-          final trailPoints = state.trailPoints ?? []; // Replace with your state property
+          final trailPoints = state.trailPoints; // Replace with your state property
 
           return Scaffold(
             appBar: _buildAppBar(),
