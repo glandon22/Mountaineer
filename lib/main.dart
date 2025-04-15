@@ -223,12 +223,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Distance: ${track.distance?.toStringAsFixed(2) ?? 'N/A'} km',
-                              style: TextStyle(color: AppColors.charcoalGray),
-                            ),
-                            Text(
-                              'Elevation Gain: ${track.elevationGain?.toStringAsFixed(2) ?? 'N/A'} m',
-                              style: TextStyle(color: AppColors.charcoalGray),
+                              '${track.distance?.toStringAsFixed(2) ?? 'N/A'} mi <> ${track.elevationGain?.toStringAsFixed(0) ?? 'N/A'} ft'
                             ),
                             if (track.tags.isNotEmpty)
                               Padding(
