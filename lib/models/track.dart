@@ -1,4 +1,5 @@
-// lib/models/track.dart
+import 'dart:typed_data';
+
 class Track {
   final int? id;
   final String name;
@@ -7,6 +8,7 @@ class Track {
   final DateTime dateAdded;
   final String? notes;
   final List<String> tags;
+  final Uint8List? thumbnail;
 
   Track({
     this.id,
@@ -16,6 +18,7 @@ class Track {
     required this.dateAdded,
     this.notes,
     this.tags = const [],
+    this.thumbnail,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +29,7 @@ class Track {
       'elevationGain': elevationGain,
       'dateAdded': dateAdded.toIso8601String(),
       'notes': notes,
+      'thumbnail': thumbnail,
     };
   }
 
@@ -38,6 +42,7 @@ class Track {
       dateAdded: DateTime.parse(map['dateAdded']),
       notes: map['notes'],
       tags: tags,
+      thumbnail: map['thumbnail'] as Uint8List?,
     );
   }
 }

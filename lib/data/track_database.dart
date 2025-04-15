@@ -1,4 +1,3 @@
-// lib/data/track_database.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/track.dart';
@@ -21,8 +20,9 @@ class TrackDatabase {
     print('Database path: $path');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Incremented for migration
       onCreate: _createDB,
+      onUpgrade: _upgradeDB, // Added for migration
     );
   }
 
@@ -34,7 +34,8 @@ class TrackDatabase {
         distance REAL,
         elevationGain REAL,
         dateAdded TEXT NOT NULL,
-        notes TEXT
+        notes TEXT,
+        thumbnail BLOB
       )
     ''');
 
@@ -54,6 +55,12 @@ class TrackDatabase {
         PRIMARY KEY (track_id, tag_id)
       )
     ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE planned_tracks ADD COLUMN thumbnail BLOB');
+    }
   }
 
   Future<int> createTrack(Track track) async {
@@ -87,7 +94,7 @@ class TrackDatabase {
   Future<List<Track>> getAllTracks() async {
     final db = await database;
     final trackMaps = await db.query('planned_tracks');
-    
+
     final List<Track> tracks = [];
     for (final trackMap in trackMaps) {
       final tags = await _getTagsForTrack(db, trackMap['id'] as int);

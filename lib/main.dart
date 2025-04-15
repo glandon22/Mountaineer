@@ -5,8 +5,8 @@ import 'adventure_details.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'bloc/home/home_bloc.dart';
-import '../data/track_database.dart'; // Import TrackDatabase
-import '../models/track.dart'; // Import Track model
+import '../data/track_database.dart';
+import '../models/track.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -60,7 +60,6 @@ class MyApp extends StatelessWidget {
               create: (context) => HomeBloc()..add(const FetchUserLocation(false)),
               child: const MyHomePage(title: 'Mountaineer'),
             ),
-        // Add other routes as needed, e.g., '/hike_details': (context) => HikeDetailsPage(...)
       },
     );
   }
@@ -81,7 +80,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    // Fetch tracks when the page loads
     _tracksFuture = TrackDatabase.instance.getAllTracks();
   }
 
@@ -171,7 +169,6 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Column(
         children: [
-          // Optional: Keep BlocBuilder for HomeBloc state if needed
           BlocBuilder<HomeBloc, HomeState>(
             builder: (context, state) {
               return state.isLoading
@@ -179,7 +176,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   : const SizedBox.shrink();
             },
           ),
-          // Tracks list
           Expanded(
             child: FutureBuilder<List<Track>>(
               future: _tracksFuture,
@@ -227,11 +223,11 @@ class _MyHomePageState extends State<MyHomePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Distance: ${track.distance?.toStringAsFixed(2)} km',
+                              'Distance: ${track.distance?.toStringAsFixed(2) ?? 'N/A'} km',
                               style: TextStyle(color: AppColors.charcoalGray),
                             ),
                             Text(
-                              'Elevation Gain: ${track.elevationGain?.toStringAsFixed(2)} m',
+                              'Elevation Gain: ${track.elevationGain?.toStringAsFixed(2) ?? 'N/A'} m',
                               style: TextStyle(color: AppColors.charcoalGray),
                             ),
                             if (track.tags.isNotEmpty)
@@ -257,6 +253,27 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                           ],
                         ),
+                        trailing: track.thumbnail != null
+                            ? Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: AppColors.charcoalGray),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.memory(
+                                    track.thumbnail!,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(Icons.error, color: Colors.red),
+                                  ),
+                                ),
+                              )
+                            : null,
                         onTap: () {
                           // Optional: Navigate to a track details page
                           // Navigator.push(context, MaterialPageRoute(builder: (context) => TrackDetailsPage(track: track)));

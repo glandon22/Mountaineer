@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import '../../data/track_database.dart';
 import '../../models/track.dart';
@@ -6,12 +8,14 @@ class SaveTrailModal extends StatefulWidget {
   final double distance;
   final double ascent;
   final double descent;
+  final Uint8List? thumbnail;
 
   const SaveTrailModal({
     super.key,
     required this.distance,
     required this.ascent,
     required this.descent,
+    this.thumbnail,
   });
 
   @override
@@ -31,6 +35,7 @@ class _SaveTrailModalState extends State<SaveTrailModal> {
 
   @override
   Widget build(BuildContext context) {
+    final String formattedDistance = widget.distance < 5 ? widget.distance.toStringAsFixed(1) : widget.distance.round().toString();
     return AlertDialog(
       title: const Text('Save Hike'),
       content: SingleChildScrollView(
@@ -53,9 +58,9 @@ class _SaveTrailModalState extends State<SaveTrailModal> {
               ),
             ),
             const SizedBox(height: 16),
-            _buildInfoRow('Distance', '${widget.distance.toStringAsFixed(2)} km'),
-            _buildInfoRow('Ascent', '${widget.ascent.toStringAsFixed(2)} m'),
-            _buildInfoRow('Descent', '${widget.descent.toStringAsFixed(2)} m'),
+            _buildInfoRow('Distance', '$formattedDistance mi'),
+            _buildInfoRow('Ascent', '${widget.ascent.toStringAsFixed(2)} ft'),
+            _buildInfoRow('Descent', '${widget.descent.toStringAsFixed(2)} ft'),
           ],
         ),
       ),
@@ -87,6 +92,7 @@ class _SaveTrailModalState extends State<SaveTrailModal> {
               dateAdded: DateTime.now(),
               tags: tags,
               notes: '', // Optional: Add a notes field to the modal if needed
+              thumbnail: widget.thumbnail,
             );
 
             try {
