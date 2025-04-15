@@ -1,11 +1,35 @@
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mountaineer/bloc/trail/trail_bloc.dart';
 import 'package:mountaineer/colors.dart';
+import 'package:path_provider/path_provider.dart';
 import './save_trail_modal.dart';
 
 class SaveButton extends StatelessWidget {
-  const SaveButton({super.key});
+  final GlobalKey mapKey;
+  final Future<Uint8List?> Function() captureMapImage;
+
+  const SaveButton({
+    super.key,
+    required this.mapKey,
+    required this.captureMapImage,
+  });
+
+  Future<void> saveImageToFile(Uint8List imageBytes) async {
+          try {
+            final directory = await getApplicationDocumentsDirectory();
+            final file = File('${directory.path}/test.png');
+            await file.writeAsBytes(imageBytes);
+            print('Image saved to: ${file.path}');
+          } catch (e) {
+            print('Error saving image to file: $e');
+          }
+        }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +42,7 @@ class SaveButton extends StatelessWidget {
           color: AppColors.softSlateBlue,
           size: 30,
         ),
-        onPressed: () {
+        onPressed: () async {
           // Access the current TrailBloc state to get trail data
           final state = context.read<TrailBloc>().state;
           // Replace these with actual state properties from your TrailBloc
@@ -26,6 +50,13 @@ class SaveButton extends StatelessWidget {
           final ascent = 0.0;     // Example property
           final descent =  0.0;   // Example property
 
+          // Capture the map image
+          final trailImage = await captureMapImage();
+          if (trailImage != null) {
+            await saveImageToFile(trailImage);
+          } else {
+            print('No image captured to save');
+          }
           // Show the modal
           showDialog(
             context: context,

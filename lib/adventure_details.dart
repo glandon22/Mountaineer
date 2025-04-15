@@ -9,6 +9,7 @@ import 'package:mountaineer/widgets/hike_details/search_bar.dart' as internal_se
 import 'package:mountaineer/widgets/hike_details/compass_button.dart';
 import 'package:mountaineer/widgets/hike_details/save_button.dart';
 import 'package:mountaineer/widgets/hike_details/trail_info.dart';
+import './utils/capture_map_image.dart';
 
 class HikeDetailsPage extends StatelessWidget {
   final LatLng initialCenter;
@@ -23,25 +24,45 @@ class HikeDetailsPage extends StatelessWidget {
   }
 
   @override
-Widget build(BuildContext context) {
-  final mapController = MapController();
-  final searchController = TextEditingController();
+  Widget build(BuildContext context) {
+    final mapController = MapController();
+    final searchController = TextEditingController();
+    final mapKey = GlobalKey(); // Key for capturing map
 
-  return BlocProvider(
-    create: (context) => TrailBloc(initialCenter)
-      ..add(InitializeTrail(initialCenter)), // Initialize with initialCenter
-    child: Scaffold( // Removed BlocListener since it was empty
-      appBar: _buildAppBar(),
-      body: Stack(
-        children: [
-          MapView(mapController: mapController),
-          internal_search_bar.SearchBar(controller: searchController, mapController: mapController),
-          CompassButton(mapController: mapController),
-          TrailInfo(mapController: mapController),
-          SaveButton(),
-        ],
+    return BlocProvider(
+      create: (context) => TrailBloc(initialCenter)
+        ..add(InitializeTrail(initialCenter)), // Initialize with initialCenter
+      child: BlocBuilder<TrailBloc, TrailState>(
+        builder: (context, state) {
+          // Access trailPoints from the state (adjust based on your state structure)
+          final trailPoints = state.trailPoints ?? []; // Replace with your state property
+
+          return Scaffold(
+            appBar: _buildAppBar(),
+            body: Stack(
+              children: [
+                RepaintBoundary(
+                  key: mapKey,
+                  child: MapView(mapController: mapController),
+                ),
+                internal_search_bar.SearchBar(
+                    controller: searchController, mapController: mapController),
+                CompassButton(mapController: mapController),
+                TrailInfo(mapController: mapController),
+                SaveButton(
+                  mapKey: mapKey,
+                  captureMapImage: () => captureMapImage(
+                    context,
+                    mapKey,
+                    mapController,
+                    trailPoints.expand((item) => item).toList() as List<LatLng>, // Pass trailPoints to captureMapImage
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
-    ),
-  );
-}
+    );
+  }
 }

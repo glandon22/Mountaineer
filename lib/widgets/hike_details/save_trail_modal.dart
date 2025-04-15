@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/track_database.dart';
 import '../../models/track.dart';
-import '../../main.dart';
 
 class SaveTrailModal extends StatefulWidget {
   final double distance;
