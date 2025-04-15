@@ -76,6 +76,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   Future<List<Track>>? _tracksFuture;
+  bool _isEditMode = false; // Track edit mode state
 
   @override
   void initState() {
@@ -166,6 +167,20 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: AppColors.mossGreen,
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isEditMode ? Icons.done : Icons.edit,
+              color: AppColors.creamyOffWhite,
+            ),
+            tooltip: _isEditMode ? 'Done' : 'Edit',
+            onPressed: () {
+              setState(() {
+                _isEditMode = !_isEditMode; // Toggle edit mode
+              });
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -222,9 +237,31 @@ class _MyHomePageState extends State<MyHomePage> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              '${track.distance?.toStringAsFixed(2) ?? 'N/A'} mi <> ${track.elevationGain?.toStringAsFixed(0) ?? 'N/A'} ft'
-                            ),
+                            Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(
+      '${track.distance?.toStringAsFixed(2) ?? 'N/A'} mi',
+      style: TextStyle(color: AppColors.charcoalGray),
+    ),
+    Icon(
+                    Icons.route_outlined,
+                    color: AppColors.softSlateBlue,
+                    size: 20,
+                  ),
+    const SizedBox(width: 4),
+
+    Text(
+      '${track.elevationGain?.toStringAsFixed(0) ?? 'N/A'} ft',
+      style: TextStyle(color: AppColors.charcoalGray),
+    ),
+    Icon(
+                    Icons.arrow_outward,
+                    color: AppColors.forestGreen,
+                    size: 20,
+                  ),
+  ],
+),
                             if (track.tags.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
@@ -248,8 +285,11 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                           ],
                         ),
-                        trailing: track.thumbnail != null
-                            ? Container(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (track.thumbnail != null)
+                              Container(
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
@@ -267,8 +307,39 @@ class _MyHomePageState extends State<MyHomePage> {
                                         const Icon(Icons.error, color: Colors.red),
                                   ),
                                 ),
-                              )
-                            : null,
+                              ),
+                            if (_isEditMode) // Show delete button only in edit mode
+                              IconButton(
+                                icon: Icon(Icons.delete_forever, color: AppColors.charcoalGray),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      title: const Text('Delete Track'),
+                                      content: Text(
+                                          'Are you sure you want to delete "${track.name}"?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogContext, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogContext, true),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await TrackDatabase.instance.deleteTrack(track.id ?? 0);
+                                    setState(() {
+                                      _tracksFuture = TrackDatabase.instance.getAllTracks();
+                                    });
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
                         onTap: () {
                           // Optional: Navigate to a track details page
                           // Navigator.push(context, MaterialPageRoute(builder: (context) => TrackDetailsPage(track: track)));
